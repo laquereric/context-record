@@ -43,6 +43,10 @@ RSpec.describe ContextRecord::ContextPrimitive do
       expect(p.value).to be_frozen
       expect(p.value[:name]).to be_frozen
     end
+
+    it "accepts vv:EvalResult type" do
+      expect { described_class.new(type: "vv:EvalResult", value: "pass") }.not_to raise_error
+    end
   end
 
   describe "#to_json_ld" do

@@ -50,6 +50,10 @@ RSpec.describe ContextRecord::Record do
         expect { described_class.new(action: action, target: "x") }.not_to raise_error
       end
     end
+
+    it "accepts :evaluate action" do
+      expect { described_class.new(action: :evaluate, target: "x") }.not_to raise_error
+    end
   end
 
   describe "#to_json_ld" do

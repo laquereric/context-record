@@ -18,7 +18,7 @@ module ContextRecord
   class Record
     VV_CONTEXT = "https://verticalvertical.net/ns/biological#"
 
-    VALID_ACTIONS = %i[create read update delete list execute].freeze
+    VALID_ACTIONS = %i[create read update delete list execute evaluate].freeze
 
     attr_reader :id, :action, :target, :payload, :metadata, :timestamp, :context
 

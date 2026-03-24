@@ -26,6 +26,7 @@ module ContextRecord
       vv:Identifier
       vv:Relation
       vv:Event
+      vv:EvalResult
     ].freeze
 
     attr_reader :type, :value, :id, :language
