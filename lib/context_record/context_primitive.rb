@@ -19,15 +19,7 @@ module ContextRecord
   #   p.to_json_ld  #=> { "@type" => "vv:Action", "@value" => "read" }
   #   p.to_json     #=> '{"@type":"vv:Action","@value":"read"}'
   class ContextPrimitive
-    VALID_TYPES = %w[
-      vv:Action
-      vv:Entity
-      vv:Literal
-      vv:Identifier
-      vv:Relation
-      vv:Event
-      vv:EvalResult
-    ].freeze
+    VALID_TYPES = ContextRecord::Ontology::PRIMITIVE_TYPES
 
     attr_reader :type, :value, :id, :language
 

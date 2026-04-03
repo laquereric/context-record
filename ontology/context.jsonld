@@ -1,0 +1,39 @@
+{
+  "@context": {
+    "vv": "https://verticalvertical.net/ns/biological#",
+    "owl": "http://www.w3.org/2002/07/owl#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "schema": "https://schema.org/",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+
+    "Action": "vv:Action",
+    "Entity": "vv:Entity",
+    "Literal": "vv:Literal",
+    "Identifier": "vv:Identifier",
+    "Relation": "vv:Relation",
+    "Event": "vv:Event",
+    "EvalResult": "vv:EvalResult",
+    "DomainEntity": "vv:DomainEntity",
+    "Taxonomy": "vv:Taxonomy",
+
+    "isCompatibleWith": { "@id": "vv:isCompatibleWith", "@type": "@id" },
+    "isNotCompatibleWith": { "@id": "vv:isNotCompatibleWith", "@type": "@id" },
+    "isAccessoryFor": { "@id": "vv:isAccessoryFor", "@type": "@id" },
+    "competesWith": { "@id": "vv:competesWith", "@type": "@id" },
+    "supersedes": { "@id": "vv:supersedes", "@type": "@id" },
+    "manufacturedBy": { "@id": "vv:manufacturedBy", "@type": "@id" },
+    "hasFeature": { "@id": "vv:hasFeature" },
+
+    "relatedTo": { "@id": "vv:relatedTo", "@type": "@id" },
+    "causedBy": { "@id": "vv:causedBy", "@type": "@id" },
+    "testedProperty": { "@id": "vv:testedProperty", "@type": "@id" },
+    "groundTruth": { "@id": "vv:groundTruth", "@type": "@id" },
+
+    "action": "vv:Action",
+    "target": "schema:target",
+    "payload": "schema:object",
+    "metadata": "schema:additionalProperty",
+    "timestamp": { "@id": "schema:dateCreated", "@type": "xsd:dateTime" }
+  }
+}
