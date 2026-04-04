@@ -11,9 +11,15 @@ RSpec.describe ContextRecord::LlmClient do
       expect(client.name).to eq("test")
     end
 
-    it "defaults name to url" do
+    it "defaults name to model_id" do
       client = described_class.new(url: "http://localhost:8081")
-      expect(client.name).to eq("http://localhost:8081")
+      expect(client.name).to eq("gemma4-local")
+      expect(client.model_id).to eq("gemma4-local")
+    end
+
+    it "accepts custom model_id" do
+      client = described_class.new(url: "http://localhost:8081", model_id: "qwen2.5")
+      expect(client.model_id).to eq("qwen2.5")
     end
   end
 

@@ -29,6 +29,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "sqlite3", ">= 1.4"
   spec.add_dependency "sqlite-vec", "~> 0.1"
+  spec.add_dependency "ruby_llm", ">= 1.13"
 
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_development_dependency "rake", "~> 13.0"
