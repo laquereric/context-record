@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VV Ontology — biological namespace</title>
+  <meta name="description" content="JSON-LD context and OWL ontology for the VV biological namespace">
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40em; margin: 2em auto; padding: 0 1em; line-height: 1.6; color: #333; }
+    h1 { font-size: 1.4em; }
+    code { background: #f4f4f4; padding: 0.15em 0.3em; border-radius: 3px; font-size: 0.95em; }
+    pre { background: #f4f4f4; padding: 1em; border-radius: 4px; overflow-x: auto; }
+    a { color: #0366d6; }
+    table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+    th, td { text-align: left; padding: 0.4em 0.8em; border: 1px solid #ddd; }
+    th { background: #f8f8f8; }
+  </style>
+</head>
+<body>
+  <h1>VV Ontology &mdash; <code>biological</code> namespace</h1>
+
+  <p>
+    Namespace URI: <code>https://verticalvertical.net/ns/biological#</code>
+  </p>
+
+  <p>
+    This namespace defines the shared vocabulary used by
+    <a href="https://github.com/vertical-vertical/context-record">context-record</a>
+    and all PostCentaur domain ontologies.
+  </p>
+
+  <h2>Available formats</h2>
+
+  <table>
+    <thead>
+      <tr><th>Format</th><th>MIME type</th><th>File</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>JSON-LD Context</td>
+        <td><code>application/ld+json</code></td>
+        <td><a href="context.jsonld">context.jsonld</a></td>
+      </tr>
+      <tr>
+        <td>Turtle Ontology</td>
+        <td><code>text/turtle</code></td>
+        <td><a href="vv-ontology.ttl">vv-ontology.ttl</a></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Usage</h2>
+
+  <p>Reference the JSON-LD context in any document:</p>
+
+  <pre>{
+  "@context": "https://verticalvertical.net/ns/biological#",
+  "@type": "Entity",
+  "hasFeature": "weather-sealed"
+}</pre>
+
+  <h2>Content negotiation</h2>
+
+  <p>
+    GitHub Pages does not support server-side content negotiation.
+    Use the direct file links above, or fetch by format:
+  </p>
+
+  <pre>
+# JSON-LD context
+curl https://vertical-vertical.github.io/context-record/ns/biological/context.jsonld
+
+# Turtle ontology
+curl https://vertical-vertical.github.io/context-record/ns/biological/vv-ontology.ttl</pre>
+
+  <p>
+    Once DNS for <code>verticalvertical.net</code> is configured with a reverse
+    proxy (nginx or Cloudflare Workers), true <code>Accept</code>-header content
+    negotiation will be available at the namespace URI.
+  </p>
+</body>
+</html>

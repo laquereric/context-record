@@ -1,0 +1,161 @@
+@prefix vv:     <https://verticalvertical.net/ns/biological#> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
+@prefix schema: <https://schema.org/> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+
+# ===========================================================================
+# VV Ontology — Shared vocabulary for PostCentaur domains
+# Namespace: https://verticalvertical.net/ns/biological#
+# ===========================================================================
+#
+# Central thesis: Ontologies provide low-cost, high-precision domain joins.
+# This vocabulary defines the shared classes and properties that all
+# PostCentaur domains (B&H, IadBot, FolkCoder) extend with domain-specific
+# terms. Cross-domain queries work via rdfs:subPropertyOf on shared
+# properties like vv:isCompatibleWith.
+#
+# Reference: https://www.w3.org/2001/sw/wiki/Main_Page
+
+vv: a owl:Ontology ;
+  rdfs:label "VV Ontology" ;
+  rdfs:comment "Shared vocabulary for PostCentaur domain joins" .
+
+# ===========================================================================
+# Classes — Context-Record primitive types
+# ===========================================================================
+# These map 1:1 to ContextPrimitive::VALID_TYPES in context_primitive.rb
+
+vv:Action a rdfs:Class ;
+  rdfs:label "Action" ;
+  rdfs:comment "CRUD operations and domain verbs (read, create, filter, execute, evaluate)" .
+
+vv:Entity a rdfs:Class ;
+  rdfs:label "Entity" ;
+  rdfs:comment "Domain objects with properties" .
+
+vv:Literal a rdfs:Class ;
+  rdfs:label "Literal" ;
+  rdfs:comment "Typed scalar values (strings, numbers, booleans)" .
+
+vv:Identifier a rdfs:Class ;
+  rdfs:label "Identifier" ;
+  rdfs:comment "IRIs and named nodes" .
+
+vv:Relation a rdfs:Class ;
+  rdfs:label "Relation" ;
+  rdfs:comment "Typed relationships between entities" .
+
+vv:Event a rdfs:Class ;
+  rdfs:label "Event" ;
+  rdfs:comment "State transition events (Rails Event Store events)" .
+
+vv:EvalResult a rdfs:Class ;
+  rdfs:label "EvalResult" ;
+  rdfs:comment "Evaluation metrics and quality scores from ruby-llm-eval" .
+
+# ===========================================================================
+# Domain superclass
+# ===========================================================================
+
+vv:DomainEntity a rdfs:Class ;
+  rdfs:subClassOf vv:Entity ;
+  rdfs:label "DomainEntity" ;
+  rdfs:comment "Superclass for all domain-specific entities. B&H Products, IadBot Beneficiaries, FolkCoder Builders all inherit from this." .
+
+# ===========================================================================
+# Taxonomy — SKOS alignment
+# ===========================================================================
+
+vv:Taxonomy a rdfs:Class ;
+  rdfs:subClassOf skos:ConceptScheme ;
+  rdfs:label "Taxonomy" ;
+  rdfs:comment "A domain category hierarchy. Top-level categories are skos:ConceptScheme instances; subcategories are skos:Concept with skos:broader/skos:narrower." .
+
+# ===========================================================================
+# Object Properties — Relationship types
+# ===========================================================================
+# These map to edge types in GraphStore. Domain ontologies declare
+# rdfs:subPropertyOf on these shared properties to enable cross-domain
+# queries.
+#
+# Cross-domain join pattern:
+#   bandh:isCompatibleWith  rdfs:subPropertyOf vv:isCompatibleWith .
+#   fc:matchesProject       rdfs:subPropertyOf vv:isCompatibleWith .
+#   iadbot:isReadyFor       rdfs:subPropertyOf vv:isCompatibleWith .
+#
+# A query on vv:isCompatibleWith matches all three domain properties.
+
+vv:isCompatibleWith a owl:ObjectProperty, owl:SymmetricProperty ;
+  rdfs:domain vv:DomainEntity ;
+  rdfs:range vv:DomainEntity ;
+  rdfs:label "isCompatibleWith" ;
+  rdfs:comment "Bidirectional compatibility between domain entities. The primary cross-domain join property." .
+
+vv:isNotCompatibleWith a owl:ObjectProperty, owl:SymmetricProperty ;
+  rdfs:domain vv:DomainEntity ;
+  rdfs:range vv:DomainEntity ;
+  rdfs:label "isNotCompatibleWith" ;
+  rdfs:comment "Explicit incompatibility. Negative knowledge is as valuable as positive for eval ground truth." .
+
+vv:isAccessoryFor a owl:ObjectProperty ;
+  rdfs:domain vv:DomainEntity ;
+  rdfs:range vv:DomainEntity ;
+  rdfs:label "isAccessoryFor" ;
+  rdfs:comment "Directional: X is an accessory for Y (not symmetric)." .
+
+vv:competesWith a owl:ObjectProperty, owl:SymmetricProperty ;
+  rdfs:domain vv:DomainEntity ;
+  rdfs:range vv:DomainEntity ;
+  rdfs:label "competesWith" ;
+  rdfs:comment "Competitive or alternative relationship between entities." .
+
+vv:supersedes a owl:ObjectProperty ;
+  rdfs:domain vv:DomainEntity ;
+  rdfs:range vv:DomainEntity ;
+  rdfs:label "supersedes" ;
+  rdfs:comment "Temporal/versioning: X replaces Y (not symmetric)." .
+
+vv:manufacturedBy a owl:ObjectProperty ;
+  rdfs:domain vv:DomainEntity ;
+  rdfs:range vv:Entity ;
+  rdfs:label "manufacturedBy" ;
+  rdfs:comment "Product-to-brand relationship." .
+
+vv:hasFeature a owl:ObjectProperty ;
+  rdfs:domain vv:DomainEntity ;
+  rdfs:range vv:Literal ;
+  rdfs:label "hasFeature" ;
+  rdfs:comment "Entity-to-spec/attribute relationship." .
+
+# ===========================================================================
+# Linking properties — for Context-Record event chains
+# ===========================================================================
+
+vv:relatedTo a owl:ObjectProperty, owl:SymmetricProperty ;
+  rdfs:domain vv:Event ;
+  rdfs:range vv:Event ;
+  rdfs:label "relatedTo" ;
+  rdfs:comment "General association between Records/Events." .
+
+vv:causedBy a owl:ObjectProperty ;
+  rdfs:domain vv:Event ;
+  rdfs:range vv:Event ;
+  rdfs:label "causedBy" ;
+  rdfs:comment "Causal chain: this event was triggered by another." .
+
+# ===========================================================================
+# Eval properties — for ontology-driven evaluation
+# ===========================================================================
+
+vv:testedProperty a owl:ObjectProperty ;
+  rdfs:domain vv:EvalResult ;
+  rdfs:range owl:ObjectProperty ;
+  rdfs:label "testedProperty" ;
+  rdfs:comment "Links an eval result to the ontology property it tested (e.g., vv:isCompatibleWith)." .
+
+vv:groundTruth a owl:ObjectProperty ;
+  rdfs:domain vv:EvalResult ;
+  rdfs:label "groundTruth" ;
+  rdfs:comment "Points to the specific graph edge or taxonomy path used as ground truth." .

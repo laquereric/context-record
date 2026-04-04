@@ -1,0 +1,16 @@
+# GitHub Pages configuration for context-record
+# Serves the VV ontology files at /ns/biological/
+
+title: context-record ontology
+description: JSON-LD context and OWL ontology for the VV namespace
+
+# Disable Jekyll processing — serve files as-is
+plugins: []
+
+# Include dotfiles and files that Jekyll would normally skip
+include:
+  - "*.jsonld"
+  - "*.ttl"
+
+# No theme needed — we serve raw ontology files + a minimal index.html
+theme: null
