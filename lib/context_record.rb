@@ -10,9 +10,12 @@ require_relative "context_record/embedding_provider"
 require_relative "context_record/embedding_provider/null"
 require_relative "context_record/embedding_provider/ollama"
 require_relative "context_record/vector_store"
+require_relative "context_record/sharded_vector_store"
 require_relative "context_record/ttl_generator"
 require_relative "context_record/format_classifier"
 require_relative "context_record/ingest_pipeline"
+require_relative "context_record/llm_client"
+require_relative "context_record/research_agent"
 
 # ContextRecord — typed JSON-LD message envelope and primitive.
 #
