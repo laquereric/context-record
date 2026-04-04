@@ -72,10 +72,23 @@ module ContextRecord
       false
     end
 
-    # Create a client from LOCAL_LLM_PROVIDER env var defaults.
-    # @param role [Symbol] :conductor (8080) or :sme (8081)
+    # Create a client from environment variables.
+    #
+    # Single-server mode (Gemma 4): LLM_PORT=8080 → both roles use same port.
+    # Legacy two-server mode: QWEN_14B_URL set → conductor:8080, sme:8081.
+    #
+    # @param role [Symbol] :conductor or :sme
     def self.from_env(role: :sme)
-      port = role == :conductor ? 8080 : 8081
+      # Legacy mode: explicit URLs override everything
+      if role == :sme && ENV["QWEN_14B_URL"]
+        return new(url: ENV["QWEN_14B_URL"], name: "sme", timeout: 120)
+      end
+      if role == :conductor && ENV["LLAMA_8B_URL"]
+        return new(url: ENV["LLAMA_8B_URL"], name: "conductor", timeout: 30)
+      end
+
+      # Single-server mode (default): both roles use LLM_PORT
+      port = ENV.fetch("LLM_PORT", "8080").to_i
       timeout = role == :conductor ? 30 : 120
       new(url: "http://localhost:#{port}", name: role.to_s, timeout: timeout)
     end

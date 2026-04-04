@@ -24,10 +24,18 @@ RSpec.describe ContextRecord::LlmClient do
       expect(client.name).to eq("conductor")
     end
 
-    it "creates sme client on port 8081" do
+    it "creates sme client on default port (single-server mode)" do
+      client = described_class.from_env(role: :sme)
+      expect(client.url).to eq("http://localhost:8080")
+      expect(client.name).to eq("sme")
+    end
+
+    it "uses QWEN_14B_URL for legacy two-server mode" do
+      ENV["QWEN_14B_URL"] = "http://localhost:8081"
       client = described_class.from_env(role: :sme)
       expect(client.url).to eq("http://localhost:8081")
-      expect(client.name).to eq("sme")
+    ensure
+      ENV.delete("QWEN_14B_URL")
     end
   end
 
