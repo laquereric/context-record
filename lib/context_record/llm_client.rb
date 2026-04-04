@@ -28,7 +28,7 @@ module ContextRecord
     # @param max_tokens [Integer]
     # @param temperature [Float]
     # @return [String] assistant response content
-    def chat(system_prompt, user_message, max_tokens: 256, temperature: 0.1)
+    def chat(system_prompt, user_message, max_tokens: 512, temperature: 0.1)
       messages = [
         { role: "system", content: system_prompt },
         { role: "user", content: user_message }
@@ -41,7 +41,7 @@ module ContextRecord
     # @param max_tokens [Integer]
     # @param temperature [Float]
     # @return [String] assistant response content
-    def conversation(messages, max_tokens: 256, temperature: 0.1)
+    def conversation(messages, max_tokens: 512, temperature: 0.1)
       request_completion(messages, max_tokens: max_tokens, temperature: temperature)
     end
 
@@ -54,7 +54,7 @@ module ContextRecord
     # @param temperature [Float]
     # @yield [String] each content chunk as it arrives
     # @return [Hash] {content:, ttfs:, total:, tokens:}
-    def chat_stream(system_prompt, user_message, max_tokens: 256, temperature: 0.1, &block)
+    def chat_stream(system_prompt, user_message, max_tokens: 512, temperature: 0.1, &block)
       messages = [
         { role: "system", content: system_prompt },
         { role: "user", content: user_message }
@@ -113,7 +113,9 @@ module ContextRecord
       end
 
       data = JSON.parse(resp.body)
-      data.dig("choices", 0, "message", "content") || raise("No content in LLM response")
+      message = data.dig("choices", 0, "message")
+      message&.fetch("content", nil) || message&.fetch("reasoning_content", nil) ||
+        raise("No content in LLM response")
     end
 
     def stream_completion(messages, max_tokens:, temperature:)
@@ -128,7 +130,9 @@ module ContextRecord
 
       start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       ttfs = nil
+      ttfs_content = nil
       content = +""
+      reasoning = +""
       tokens = 0
 
       Net::HTTP.start(uri.hostname, uri.port, read_timeout: @timeout) do |http|
@@ -147,20 +151,39 @@ module ContextRecord
               next if data == "[DONE]"
 
               parsed = JSON.parse(data)
-              delta = parsed.dig("choices", 0, "delta", "content")
+              delta = parsed.dig("choices", 0, "delta")
               next unless delta
 
-              ttfs ||= Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
-              content << delta
               tokens += 1
-              yield delta if block_given?
+
+              # Reasoning tokens (thinking phase — Gemma 4, etc.)
+              if delta["reasoning_content"]
+                ttfs ||= Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+                reasoning << delta["reasoning_content"]
+                yield({ type: :reasoning, text: delta["reasoning_content"] }) if block_given?
+              end
+
+              # Content tokens (actual answer)
+              if delta["content"]
+                ttfs ||= Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+                ttfs_content ||= Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+                content << delta["content"]
+                yield({ type: :content, text: delta["content"] }) if block_given?
+              end
             end
           end
         end
       end
 
       total = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
-      { content: content, ttfs: ttfs || total, total: total, tokens: tokens }
+      {
+        content: content,
+        reasoning: reasoning,
+        ttfs: ttfs || total,
+        ttfs_content: ttfs_content,
+        total: total,
+        tokens: tokens
+      }
     end
   end
 end

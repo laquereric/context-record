@@ -43,7 +43,7 @@ module ContextRecord
     # @param node_id [String, nil] optional starting node for graph traversal
     # @param max_tokens [Integer] limit response length (default 256)
     # @return [ContextRecord::Record] with answer in payload
-    def research(query, node_id: nil, max_tokens: 256)
+    def research(query, node_id: nil, max_tokens: 512)
       start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       context = assemble_context(query, node_id)
       user_message = build_user_message(query, context[:context])
@@ -60,7 +60,7 @@ module ContextRecord
     # @param max_tokens [Integer]
     # @yield [String] each content chunk
     # @return [ContextRecord::Record] with answer + TTFS/total timings
-    def research_stream(query, node_id: nil, max_tokens: 256, &block)
+    def research_stream(query, node_id: nil, max_tokens: 512, &block)
       start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       context = assemble_context(query, node_id)
       retrieval_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
@@ -73,9 +73,13 @@ module ContextRecord
 
       total = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
 
-      build_result(query, stream_result[:content], context,
+      # Use content if available, fall back to reasoning for thinking-only models
+      answer = stream_result[:content].empty? ? stream_result[:reasoning] : stream_result[:content]
+
+      build_result(query, answer, context,
                    elapsed_sec: total,
                    ttfs: stream_result[:ttfs],
+                   ttfs_content: stream_result[:ttfs_content],
                    retrieval_sec: retrieval_time,
                    tokens: stream_result[:tokens])
     end
@@ -116,13 +120,14 @@ module ContextRecord
       end
     end
 
-    def build_result(query, answer, context, elapsed_sec:, ttfs: nil, retrieval_sec: nil, tokens: nil)
+    def build_result(query, answer, context, elapsed_sec:, ttfs: nil, ttfs_content: nil, retrieval_sec: nil, tokens: nil)
       meta = {
         "agent" => self.class.name,
         "sme" => @sme.name,
         "elapsed_sec" => elapsed_sec.round(3)
       }
       meta["ttfs"] = ttfs.round(3) if ttfs
+      meta["ttfs_content"] = ttfs_content.round(3) if ttfs_content
       meta["retrieval_sec"] = retrieval_sec.round(3) if retrieval_sec
       meta["tokens"] = tokens if tokens
 
