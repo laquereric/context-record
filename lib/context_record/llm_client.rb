@@ -28,28 +28,12 @@ module ContextRecord
     # @param max_tokens [Integer]
     # @param temperature [Float]
     # @return [String] assistant response content
-    def chat(system_prompt, user_message, max_tokens: 1024, temperature: 0.1)
-      uri = URI("#{@url}/v1/chat/completions")
-      req = Net::HTTP::Post.new(uri, "Content-Type" => "application/json")
-      req.body = JSON.generate({
-        messages: [
-          { role: "system", content: system_prompt },
-          { role: "user", content: user_message }
-        ],
-        max_tokens: max_tokens,
-        temperature: temperature
-      })
-
-      resp = Net::HTTP.start(uri.hostname, uri.port, read_timeout: @timeout) do |http|
-        http.request(req)
-      end
-
-      unless resp.code == "200"
-        raise "LLM request failed (#{resp.code}): #{resp.body}"
-      end
-
-      data = JSON.parse(resp.body)
-      data.dig("choices", 0, "message", "content") || raise("No content in LLM response")
+    def chat(system_prompt, user_message, max_tokens: 256, temperature: 0.1)
+      messages = [
+        { role: "system", content: system_prompt },
+        { role: "user", content: user_message }
+      ]
+      request_completion(messages, max_tokens: max_tokens, temperature: temperature)
     end
 
     # Multi-turn conversation.
@@ -57,7 +41,48 @@ module ContextRecord
     # @param max_tokens [Integer]
     # @param temperature [Float]
     # @return [String] assistant response content
-    def conversation(messages, max_tokens: 1024, temperature: 0.1)
+    def conversation(messages, max_tokens: 256, temperature: 0.1)
+      request_completion(messages, max_tokens: max_tokens, temperature: temperature)
+    end
+
+    # Streaming chat — yields each token as it arrives.
+    # Returns {content:, ttfs:, total:, tokens:} after stream completes.
+    #
+    # @param system_prompt [String]
+    # @param user_message [String]
+    # @param max_tokens [Integer]
+    # @param temperature [Float]
+    # @yield [String] each content chunk as it arrives
+    # @return [Hash] {content:, ttfs:, total:, tokens:}
+    def chat_stream(system_prompt, user_message, max_tokens: 256, temperature: 0.1, &block)
+      messages = [
+        { role: "system", content: system_prompt },
+        { role: "user", content: user_message }
+      ]
+      stream_completion(messages, max_tokens: max_tokens, temperature: temperature, &block)
+    end
+
+    # Check if the server is online.
+    # @return [Boolean]
+    def online?
+      uri = URI("#{@url}/health")
+      resp = Net::HTTP.get_response(uri)
+      resp.code == "200"
+    rescue StandardError
+      false
+    end
+
+    # Create a client from LOCAL_LLM_PROVIDER env var defaults.
+    # @param role [Symbol] :conductor (8080) or :sme (8081)
+    def self.from_env(role: :sme)
+      port = role == :conductor ? 8080 : 8081
+      timeout = role == :conductor ? 30 : 120
+      new(url: "http://localhost:#{port}", name: role.to_s, timeout: timeout)
+    end
+
+    private
+
+    def request_completion(messages, max_tokens:, temperature:)
       uri = URI("#{@url}/v1/chat/completions")
       req = Net::HTTP::Post.new(uri, "Content-Type" => "application/json")
       req.body = JSON.generate({
@@ -78,22 +103,51 @@ module ContextRecord
       data.dig("choices", 0, "message", "content") || raise("No content in LLM response")
     end
 
-    # Check if the server is online.
-    # @return [Boolean]
-    def online?
-      uri = URI("#{@url}/health")
-      resp = Net::HTTP.get_response(uri)
-      resp.code == "200"
-    rescue StandardError
-      false
-    end
+    def stream_completion(messages, max_tokens:, temperature:)
+      uri = URI("#{@url}/v1/chat/completions")
+      req = Net::HTTP::Post.new(uri, "Content-Type" => "application/json")
+      req.body = JSON.generate({
+        messages: messages,
+        max_tokens: max_tokens,
+        temperature: temperature,
+        stream: true
+      })
 
-    # Create a client from LOCAL_LLM_PROVIDER env var defaults.
-    # @param role [Symbol] :conductor (8080) or :sme (8081)
-    def self.from_env(role: :sme)
-      port = role == :conductor ? 8080 : 8081
-      timeout = role == :conductor ? 30 : 120
-      new(url: "http://localhost:#{port}", name: role.to_s, timeout: timeout)
+      start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      ttfs = nil
+      content = +""
+      tokens = 0
+
+      Net::HTTP.start(uri.hostname, uri.port, read_timeout: @timeout) do |http|
+        http.request(req) do |resp|
+          unless resp.code == "200"
+            raise "LLM stream failed (#{resp.code}): #{resp.read_body}"
+          end
+
+          resp.read_body do |chunk|
+            chunk.each_line do |line|
+              line = line.strip
+              next if line.empty?
+              next unless line.start_with?("data: ")
+
+              data = line.sub("data: ", "")
+              next if data == "[DONE]"
+
+              parsed = JSON.parse(data)
+              delta = parsed.dig("choices", 0, "delta", "content")
+              next unless delta
+
+              ttfs ||= Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+              content << delta
+              tokens += 1
+              yield delta if block_given?
+            end
+          end
+        end
+      end
+
+      total = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+      { content: content, ttfs: ttfs || total, total: total, tokens: tokens }
     end
   end
 end

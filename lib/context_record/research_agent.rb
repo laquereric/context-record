@@ -41,41 +41,43 @@ module ContextRecord
     # Research a query: assemble context → ask SME → return Record.
     # @param query [String] natural language question
     # @param node_id [String, nil] optional starting node for graph traversal
+    # @param max_tokens [Integer] limit response length (default 256)
     # @return [ContextRecord::Record] with answer in payload
-    def research(query, node_id: nil)
+    def research(query, node_id: nil, max_tokens: 256)
       start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-
-      # Assemble context from graph + vector store
-      context = @assembler.assemble(
-        node_id: node_id,
-        query_text: query,
-        top_k: 10
-      )
-
-      # Build the user message with assembled context
+      context = assemble_context(query, node_id)
       user_message = build_user_message(query, context[:context])
 
-      # Ask the SME
-      answer = @sme.chat(@system_prompt, user_message)
+      answer = @sme.chat(@system_prompt, user_message, max_tokens: max_tokens)
       elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
 
-      # Return provenance Record
-      Record.new(
-        action: :execute,
-        target: "research",
-        rdf_type: "vv:ResearchEvent",
-        payload: {
-          "query" => query,
-          "answer" => answer,
-          "context_length" => context[:context].length,
-          "sources" => context[:sources]
-        },
-        metadata: {
-          "agent" => self.class.name,
-          "sme" => @sme.name,
-          "elapsed_sec" => elapsed.round(3)
-        }
+      build_result(query, answer, context, elapsed_sec: elapsed)
+    end
+
+    # Streaming research — yields tokens as they arrive.
+    # @param query [String]
+    # @param node_id [String, nil]
+    # @param max_tokens [Integer]
+    # @yield [String] each content chunk
+    # @return [ContextRecord::Record] with answer + TTFS/total timings
+    def research_stream(query, node_id: nil, max_tokens: 256, &block)
+      start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      context = assemble_context(query, node_id)
+      retrieval_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+      user_message = build_user_message(query, context[:context])
+
+      stream_result = @sme.chat_stream(
+        @system_prompt, user_message,
+        max_tokens: max_tokens, &block
       )
+
+      total = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
+
+      build_result(query, stream_result[:content], context,
+                   elapsed_sec: total,
+                   ttfs: stream_result[:ttfs],
+                   retrieval_sec: retrieval_time,
+                   tokens: stream_result[:tokens])
     end
 
     # Ingest a discovery back into the knowledge graph.
@@ -102,12 +104,40 @@ module ContextRecord
 
     private
 
+    def assemble_context(query, node_id)
+      @assembler.assemble(node_id: node_id, query_text: query, top_k: 10)
+    end
+
     def build_user_message(query, context_text)
       if context_text && !context_text.empty?
         "#{context_text}\n\n[QUESTION]\n#{query}"
       else
         query
       end
+    end
+
+    def build_result(query, answer, context, elapsed_sec:, ttfs: nil, retrieval_sec: nil, tokens: nil)
+      meta = {
+        "agent" => self.class.name,
+        "sme" => @sme.name,
+        "elapsed_sec" => elapsed_sec.round(3)
+      }
+      meta["ttfs"] = ttfs.round(3) if ttfs
+      meta["retrieval_sec"] = retrieval_sec.round(3) if retrieval_sec
+      meta["tokens"] = tokens if tokens
+
+      Record.new(
+        action: :execute,
+        target: "research",
+        rdf_type: "vv:ResearchEvent",
+        payload: {
+          "query" => query,
+          "answer" => answer,
+          "context_length" => context[:context].length,
+          "sources" => context[:sources]
+        },
+        metadata: meta
+      )
     end
   end
 end
