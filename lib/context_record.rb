@@ -5,6 +5,7 @@ require_relative "context_record/ontology"
 require_relative "context_record/context_primitive"
 require_relative "context_record/record"
 require_relative "context_record/graph_store"
+require_relative "context_record/context_assembler"
 
 # ContextRecord — typed JSON-LD message envelope and primitive.
 #
