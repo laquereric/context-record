@@ -1,0 +1,108 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Run all 30 research queries sequentially against live Gemma 4.
+# Output: research_results.json
+
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+$LOAD_PATH.unshift File.expand_path("../../smith/lib", __dir__)
+$LOAD_PATH.unshift File.expand_path("../../moe4less/lib", __dir__)
+$LOAD_PATH.unshift File.expand_path("../../folk-coder/lib", __dir__)
+$LOAD_PATH.unshift File.expand_path("../../iad-bot-org/lib", __dir__)
+
+require "context_record"
+require "context_record/research_workflow"
+require "moe4less"
+require "folk_coder"
+require "iad_bot"
+require "json"
+
+client = ContextRecord::LlmClient.new
+results = []
+
+domains = {
+  bandh: {
+    graph: Moe4Less.graph_store,
+    queries: [
+      "What audio interfaces work with dynamic microphones like the SM7B?",
+      "What lenses are compatible with the Sony A7IV?",
+      "What monitors work with the Blackmagic Pocket 6K?",
+      "What accessories does a podcast studio need?",
+      "Compare the Canon R5 vs Nikon Z8 for video",
+      "What lighting works with the Aputure 600d?",
+      "What storage solutions work with RED cameras?",
+      "What wireless systems work with the Sennheiser EW?",
+      "What tripods support cinema cameras over 5 lbs?",
+      "What cables connect XLR mics to USB-C laptops?"
+    ]
+  },
+  folkcoder: {
+    graph: FolkCoder::GraphStore.new.load_seed,
+    queries: [
+      "What are the largest hackathons in 2025-2026?",
+      "What technologies are most popular at hackathons?",
+      "What skills do winning hackathon teams typically have?",
+      "How do Devpost and MLH hackathons differ?",
+      "What are common hackathon project categories?",
+      "What makes a good hackathon team composition?",
+      "What tools do hackathon participants commonly use?",
+      "How do online vs in-person hackathons compare?",
+      "What are the best hackathons for beginners?",
+      "What sponsors commonly support hackathons?"
+    ]
+  },
+  iadbot: {
+    graph: IadBot::GraphStore.new.load_seed,
+    queries: [
+      "What are Erikson's 8 stages of psychosocial development?",
+      "What is Arnett's emerging adulthood framework?",
+      "What are Marcia's 4 identity statuses?",
+      "What readiness indicators predict career exploration success?",
+      "How do identity themes relate to developmental challenges?",
+      "What Socratic questioning techniques work for emerging adults?",
+      "What strength-based assessment frameworks exist for youth?",
+      "How does identity development differ for first-generation students?",
+      "What are common developmental challenges for ages 18-25?",
+      "What scaffolding protocols support internship readiness?"
+    ]
+  }
+}
+
+total = domains.values.sum { |d| d[:queries].size }
+done = 0
+
+domains.each do |domain, config|
+  config[:queries].each_with_index do |query, i|
+    done += 1
+    $stderr.puts "[#{done}/#{total}] #{domain} Q#{i + 1}: #{query[0..60]}..."
+
+    start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    result = ContextRecord::ResearchWorkflow.research(
+      query: query,
+      graph_store: config[:graph],
+      llm_client: client
+    )
+    elapsed = (Process.clock_gettime(Process::CLOCK_MONOTONIC) - start).round(1)
+
+    entry = {
+      domain: domain.to_s,
+      query: query,
+      answer: result.outcome_payload[:answer],
+      sources: result.outcome_payload[:sources]&.size || 0,
+      state: result.state.to_s,
+      steps: result.steps.map { |s| s[:transition].to_s },
+      elapsed_sec: elapsed
+    }
+    results << entry
+
+    $stderr.puts "  → #{result.state} | #{elapsed}s | sources: #{entry[:sources]}"
+  end
+end
+
+# Save results
+output_path = File.expand_path("../../docs/research/research_results_0_5_19.json", __dir__)
+File.write(output_path, JSON.pretty_generate(results))
+$stderr.puts "\n=== DONE: #{results.size} queries, saved to #{output_path} ==="
+$stderr.puts "Done: #{results.count { |r| r[:state] == 'done' }}"
+$stderr.puts "Failed: #{results.count { |r| r[:state] == 'failed' }}"
+$stderr.puts "Avg time: #{(results.sum { |r| r[:elapsed_sec] } / results.size).round(1)}s"
